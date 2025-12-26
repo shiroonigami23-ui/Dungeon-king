@@ -2,93 +2,79 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using System;
-using Random = UnityEngine.Random;
+
+[Serializable]
+public class ItemData // This defines what an "Item" is in your list
+{
+    public string name;
+    public int ID;
+    public GameObject itemPrefab;   // The one held in hand
+    public GameObject pickUpPrefab; // The one on the ground
+    public Transform pivotPoint;    // Where it rotates
+    public Transform heldPoint;     // Where it sits in hand
+}
 
 public class ItemManager : MonoBehaviour
 {
-    // General Setup
-    public Item[] Items;
-    private int[] AllItemIDs;
-    private GameObject[] AllItems;
-    public GameObject Hand1Item;
-    public GameObject HandForSword;
-    public GameObject HandForBow;
-    private int TotalItems;
-
-
-    // Drop Item
-    private GameObject player;
-    public float offset;
+    [Header("Inventory Data")]
+    public ItemData[] Items;
+    public GameObject Hand1Item; // This should be the "Hand" child of your Player
     public int HeldLayer;
 
-    void Awake()
-    {
-        TotalItems = Items.Length;
-        AllItemIDs = new int[TotalItems];
-        for (int i = 0; i < Items.Length; i++)
-        {
-            AllItemIDs[i] = Items[i].ID;
-        }
-
-   /*   foreach (Item i in Items)
-        {
-            AllItems[i] = i.item;
-            
-            i.damage = i.damage;
-            i.health = i.health;
-        } */
-    }
+    [Header("Drop Settings")]
+    private GameObject player;
+    public float dropOffset = 1.5f;
 
     void Start()
     {
         player = GameObject.FindGameObjectWithTag("Player");
+        HeldLayer = LayerMask.NameToLayer("Player");
     }
 
     public void Hold(int Itemid)
     {
-        if (Hand1Item.transform.childCount > 0)
-        {
-            GameObject g = Hand1Item.transform.GetChild(0).gameObject;
-            Destroy(g);
-        }
+        HideAll(); // Clear hand first
 
-        // place new item in hand
-        int ID = Itemid;
-        Item i = Array.Find(Items, Item => Item.ID == ID);
-        Hand1Item.transform.parent.rotation = Quaternion.identity;
-        Hand1Item.transform.parent.position = new Vector3(i.pivotPoint.position.x, i.pivotPoint.position.y, 0);
-        Hand1Item.transform.position = new Vector3(i.heldPoint.position.x, i.heldPoint.position.y, 0);
-        GameObject g2 = Instantiate(i.item, Hand1Item.transform, false);
-        g2.layer = HeldLayer;
+        // Find the item in our list by ID
+        ItemData i = Array.Find(Items, data => data.ID == Itemid);
+
+        if (i != null && i.itemPrefab != null)
+        {
+            // Position the hand/pivot based on the item's specific data
+            Transform handPivot = Hand1Item.transform.parent;
+            handPivot.rotation = Quaternion.identity;
+            
+            // Spawn the weapon
+            GameObject newWeapon = Instantiate(i.itemPrefab, Hand1Item.transform, false);
+            newWeapon.layer = HeldLayer;
+            
+            Debug.Log("Holding: " + i.name);
+        }
     }
 
     public void Drop(int Itemid)
     {
-        // Drop Item in Active slot
-        int ID = Itemid;
-        Item i = Array.Find(Items, Item => Item.ID == ID);
+        ItemData i = Array.Find(Items, data => data.ID == Itemid);
 
-        // Create item in world
-        Vector2 playerPos = new Vector2(player.transform.position.x + offset, player.transform.position.y);
-
-        Instantiate(i.pickUp, playerPos, Quaternion.identity);
-
-        // destroy old item in hand
-        if (Hand1Item.transform.childCount > 0)
+        if (i != null && i.pickUpPrefab != null)
         {
-            GameObject g = Hand1Item.transform.GetChild(0).gameObject;
-            Destroy(g);
+            // Spawn the pickup item on the ground near the player
+            Vector2 dropPos = new Vector2(player.transform.position.x + dropOffset, player.transform.position.y);
+            Instantiate(i.pickUpPrefab, dropPos, Quaternion.identity);
+            
+            HideAll();
         }
     }
 
-    public void DestroyHeldItem()
+    public void HideAll()
     {
-        // destroy old item in hand
+        // Destroy whatever is currently in the player's hand
         if (Hand1Item.transform.childCount > 0)
         {
-            GameObject g = Hand1Item.transform.GetChild(0).gameObject;
-            Destroy(g);
+            foreach (Transform child in Hand1Item.transform)
+            {
+                Destroy(child.gameObject);
+            }
         }
     }
-
 }

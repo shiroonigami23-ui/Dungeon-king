@@ -9,7 +9,7 @@ public class Pickup : MonoBehaviour
     [Header("Type Settings")]
     public PickupType type;
     public int itemID; // Used for Hotbar items
-    public float value = 1f; // Used for Gold or Health amount
+    public float value = 1f; // Amount of Gold or Health
     public GameObject icon; // The UI icon for the hotbar
 
     [Header("Management (Auto-filled)")]
@@ -23,7 +23,6 @@ public class Pickup : MonoBehaviour
 
     void Start()
     {
-        // Try to find the systems. If they don't exist, the game won't crash
         GameObject hbObj = GameObject.FindGameObjectWithTag("HotBar");
         if(hbObj != null) hotbar = hbObj.GetComponent<Hotbar>();
 
@@ -45,20 +44,29 @@ public class Pickup : MonoBehaviour
     {
         if (col.CompareTag("Player"))
         {
+            Player playerScript = col.GetComponent<Player>();
+
             switch (type)
             {
+                case PickupType.Gold:
+                    playerScript.currentGold += (int)value;
+                    if(SoundManager.Instance != null) SoundManager.Instance.PlaySound(SoundManager.Instance.coinPickup);
+                    Destroy(gameObject);
+                    break;
+
+                case PickupType.Health:
+                    // Only pick up if the player actually needs health
+                    if (playerScript.health < playerScript.maxHealth)
+                    {
+                        playerScript.Heal(value);
+                        // Reuse coin sound or add a 'drink' sound later
+                        if(SoundManager.Instance != null) SoundManager.Instance.PlaySound(SoundManager.Instance.coinPickup);
+                        Destroy(gameObject);
+                    }
+                    break;
+
                 case PickupType.HotbarItem:
                     HandleHotbarPickup();
-                    break;
-                case PickupType.Gold:
-                SoundManager.Instance.PlaySound(SoundManager.Instance.coinPickup);
-                    Debug.Log("Gained Gold: " + value);
-                    // Add to your MoneyManager here
-                    Destroy(gameObject);
-                    break;
-                case PickupType.Health:
-                    col.GetComponent<Player>().health += value;
-                    Destroy(gameObject);
                     break;
             }
         }

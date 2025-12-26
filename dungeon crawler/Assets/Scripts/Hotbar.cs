@@ -5,152 +5,100 @@ using UnityEngine.UI;
 
 public class Hotbar : MonoBehaviour
 {
-    // General SetUp
+    [Header("General Setup")]
     public bool[] isFull;
     public GameObject[] slots;
-    private float lastMouseDelta;
-
-    // Coloring and Active
+    public int[] CarriedItemIDs;
     public bool[] isActive;
-    public Color[] colors;
     public int ActiveID;
 
-    // Hand1Item Hold
-    public GameObject Hand1;
-    public int[] CarriedItemIDs;
-
-    //Drop Item
+    [Header("Visuals")]
+    public Color[] colors; // colors[0] = Active, colors[1] = Inactive
     public ItemManager itemmanager;
 
-    // Start is called before the first frame update
     void Start()
     {
-        slots[0].GetComponent<Image>().color = colors[0];
-        isActive[0] = true;
-        slots[0].GetComponent<Animator>().SetBool("isActive", true);
-        ActiveID = 0;
+        // Set first slot as active at start
+        SlotChanged(0);
+    }
 
-        // Hold Active Slot Item
-        if (isFull[0] == true)
+    void Update()
+    {
+        // 1. Number Key Input
+        if (Input.GetKeyDown(KeyCode.Alpha1)) SlotChanged(0);
+        if (Input.GetKeyDown(KeyCode.Alpha2)) SlotChanged(1);
+        if (Input.GetKeyDown(KeyCode.Alpha3)) SlotChanged(2);
+        if (Input.GetKeyDown(KeyCode.Alpha4)) SlotChanged(3);
+
+        // 2. Mouse Wheel Input (Scrolling)
+        float scroll = Input.GetAxisRaw("Mouse ScrollWheel");
+        if (scroll > 0) // Wheel Up
+        {
+            int nextSlot = (ActiveID >= 3) ? 0 : ActiveID + 1;
+            SlotChanged(nextSlot);
+        }
+        else if (scroll < 0) // Wheel Down
+        {
+            int nextSlot = (ActiveID <= 0) ? 3 : ActiveID - 1;
+            SlotChanged(nextSlot);
+        }
+
+        // 3. Drop Item Input (Q)
+        if (Input.GetKeyDown(KeyCode.Q))
+        {
+            if (isFull[ActiveID])
+            {
+                DropItem();
+            }
+        }
+    }
+
+    public void SlotChanged(int slot)
+    {
+        ActiveID = slot;
+
+        for (int i = 0; i < slots.Length; i++)
+        {
+            bool isThisSlot = (i == slot);
+            isActive[i] = isThisSlot;
+
+            // Visuals: Color and Animation
+            slots[i].GetComponent<Image>().color = isThisSlot ? colors[0] : colors[1];
+            
+            Animator slotAnim = slots[i].GetComponent<Animator>();
+            if (slotAnim != null) slotAnim.SetBool("isActive", isThisSlot);
+        }
+
+        // Physically update the item in the Player's hand
+        UpdateHeldItem();
+    }
+
+    void UpdateHeldItem()
+    {
+        if (isFull[ActiveID])
         {
             itemmanager.Hold(CarriedItemIDs[ActiveID]);
         }
-    }
-
-    // Update is called once per frame
-    void Update()
-    {
-        // Input
-
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-        {
-            SlotChanged(0);
-        }
-        if (Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            SlotChanged(1);
-        }
-        if (Input.GetKeyDown(KeyCode.Alpha3))
-        {
-            SlotChanged(2);
-        }
-        if (Input.GetKeyDown(KeyCode.Alpha4))
-        {
-            SlotChanged(3);
-        }
-
-        //wheel goes up
-        if (Input.GetAxisRaw("Mouse ScrollWheel") > 0)
-        {
-            if (ActiveID < 3)
-                SlotChanged(ActiveID + 1);
-            else
-                SlotChanged(0); 
-            
-        }//wheel goes down
-        else if (Input.GetAxisRaw("Mouse ScrollWheel") < 0)
-        {
-            if (ActiveID > 0)
-                SlotChanged(ActiveID - 1);
-            else
-                SlotChanged(3);
-        }
-
-        // Drop Items
-
-        if (Input.GetKeyDown(KeyCode.Q))
-        {
-            if (isFull[ActiveID] == true)
-            {
-                DropItem(slots[ActiveID]);
-                isFull[ActiveID] = false;
-            }
-        }
-    }
-
-    void SlotChanged(int slot)
-    {
-        if (isFull[slot] == true)
-        {
-            for (int i = 0; i < isActive.Length; i++)
-            {
-                if (i == slot)
-                {
-                    slots[slot].GetComponent<Image>().color = colors[0];
-                    slots[slot].GetComponent<Animator>().SetBool("isActive", true);
-                    isActive[slot] = true;
-                    ActiveID = slot;
-
-                    // Hold Item
-                    if (isFull[slot] == true)
-                    {
-                        itemmanager.Hold(CarriedItemIDs[ActiveID]);
-                    }
-                }
-                else
-                {
-                    slots[i].GetComponent<Image>().color = colors[1];
-                    isActive[i] = false;
-                    slots[i].GetComponent<Animator>().SetBool("isActive", false);
-                }
-            }
-        }
         else
         {
-            for (int i = 0; i < isActive.Length; i++)
-            {
-                if (i == slot)
-                {
-                    slots[slot].GetComponent<Image>().color = colors[0];
-                    isActive[slot] = true;
-                    ActiveID = slot;
-                    slots[slot].GetComponent<Animator>().SetBool("isActive", true);
-                    itemmanager.DestroyHeldItem();
-                }
-                else
-                {
-                    slots[i].GetComponent<Image>().color = colors[1];
-                    isActive[i] = false;
-                    slots[i].GetComponent<Animator>().SetBool("isActive", false);
-                }
-            }
+            itemmanager.HideAll(); // From our new ItemManager
         }
     }
 
-    void DropItem(GameObject Active)
+    void DropItem()
     {
-        // Get rid of object icon in active slot
-
-        if (isFull[ActiveID] == true)
+        // 1. Remove the Icon from the UI (usually child index 1)
+        if (slots[ActiveID].transform.childCount > 1)
         {
-            GameObject g = Active.transform.GetChild(1).gameObject;
-            Destroy(g);
-            isFull[ActiveID] = false;
-
-            // Call Drop Item Function()
-            itemmanager.Drop(CarriedItemIDs[ActiveID]);
-
-            CarriedItemIDs[ActiveID] = 0;
+            Destroy(slots[ActiveID].transform.GetChild(1).gameObject);
         }
+
+        // 2. Tell ItemManager to spawn the item on the ground
+        itemmanager.Drop(CarriedItemIDs[ActiveID]);
+
+        // 3. Clear data
+        isFull[ActiveID] = false;
+        CarriedItemIDs[ActiveID] = -1;
+        itemmanager.HideAll();
     }
 }

@@ -4,51 +4,70 @@ using UnityEngine;
 
 public class Bow : MonoBehaviour
 {
-    // Change Sprites
+    [Header("Sprites (0: Idle, 1: Drawn)")]
     public Sprite[] sprites;
     private SpriteRenderer sr;
 
-    // Projectile Stuff (Shooting)
-    public GameObject projectile;
+    [Header("Shooting")]
+    public GameObject arrowPrefab;
     public Transform spawnPoint;
-    public float projSpeed;
+    public float projSpeed = 15f;
+    public float timeBetweenShots = 0.5f;
+    private float nextShotTime;
 
-    // Aim Stuff
-    private Vector2 target;
-    public Transform hand1;
+    private Transform pivot;
 
-    // Start is called before the first frame update
     void Start()
     {
-        hand1 = gameObject.transform.parent.parent;
-        sr = gameObject.GetComponent<SpriteRenderer>();
-        sr.sprite = sprites[0];
+        sr = GetComponent<SpriteRenderer>();
+        // The pivot is the parent (Hand1)
+        pivot = transform.parent; 
+        if (sprites.Length > 0) sr.sprite = sprites[0];
     }
 
-    // Update is called once per frame
     void Update()
     {
-        // Aim
-        target = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        hand1.rotation = Quaternion.Euler(0, 0, Mathf.Atan2(target.y - hand1.position.y, target.x - hand1.position.x) * Mathf.Rad2Deg - 90);
+        HandleAiming();
 
-        // Shoot on Mouse Click
-        if (Input.GetKeyUp(KeyCode.Mouse0))
-        {
-            Shoot();
-        }
-
+        // 1. Draw the bow (Change sprite on click)
         if (Input.GetKeyDown(KeyCode.Mouse0))
         {
-            sr.sprite = sprites[1];
+            if (sprites.Length > 1) sr.sprite = sprites[1];
         }
+
+        // 2. Shoot (On Release)
+        if (Input.GetKeyUp(KeyCode.Mouse0) && Time.time > nextShotTime)
+        {
+            Shoot();
+            nextShotTime = Time.time + timeBetweenShots;
+        }
+    }
+
+    void HandleAiming()
+    {
+        Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        Vector2 direction = mousePos - pivot.position;
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
+        
+        // Rotate the pivot (the hand)
+        pivot.rotation = Quaternion.Euler(0, 0, angle - 90);
     }
 
     void Shoot()
     {
-        sr.sprite = sprites[0];
-        GameObject a = Instantiate(projectile, spawnPoint.position, hand1.rotation);
+        sr.sprite = sprites[0]; // Reset to idle sprite
+        
+        // Play Sound
+        if(SoundManager.Instance != null) SoundManager.Instance.PlaySound(SoundManager.Instance.swordSwing);
+
+        // Spawn Arrow
+        GameObject a = Instantiate(arrowPrefab, spawnPoint.position, pivot.rotation);
+        
+        // Fire it forward (up direction of the pivot)
         Rigidbody2D arb = a.GetComponent<Rigidbody2D>();
-        arb.AddForce(spawnPoint.transform.up * (projSpeed / 1000), ForceMode2D.Impulse);
+        if (arb != null)
+        {
+            arb.velocity = pivot.up * projSpeed;
+        }
     }
 }

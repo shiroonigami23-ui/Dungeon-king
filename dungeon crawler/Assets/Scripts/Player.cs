@@ -1,131 +1,128 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class Player : MonoBehaviour
 {
-    // Run
-    [Header("Running")]
-    public float speed;
+    [Header("Movement")]
+    public float speed = 5f;
+    public float dashSpeed = 15f;
+    public float dashDuration = 0.2f;
+    public float dashCooldown = 1f;
+
+    [Header("Stats")]
+    public float health = 100f;
+    public float maxHealth = 100f;
+    public float invincibilityDuration = 1.5f;
+
+    [Header("Physics & Components")]
     private Rigidbody2D rb;
+    private Animator anim;
+    private SpriteRenderer sr;
+    private Vector2 moveInput;
     private Vector2 moveVelocity;
 
-    // Dash
-    public float dashSpeed;
-    private float dashTime;
-    public float startDashTime;
-    private int moved;
+    [Header("State Bools")]
+    private bool isDashing = false;
+    private bool canDash = true;
+    private bool isInvincible = false;
+    private bool facingRight = true;
 
-    // Layers
-    public int invincibleLayer;
-    public int playerLayer;
-    
-    // Trail
-    [Header("Trail")]
-    public ParticleSystem dust;
-
-    // Animations
-    private Animator anim;
-
-    //Flip
-    public bool facingRight;
-    private SpriteRenderer sr;
-
-    //Health
-    public float health;
-
-
-    // Start is called before the first frame update
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        anim = GetComponent<Animator>();
         sr = GetComponent<SpriteRenderer>();
-        anim = gameObject.GetComponent<Animator>();
-        dashTime = startDashTime;
-        moved = 0;
+        health = maxHealth;
     }
 
-    // Update is called once per frame
     void Update()
     {
-        // Run
-        Vector2 moveInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        if (isDashing) return; // Freeze input during dash
 
-        if (moved == 0)
+        // 1. Movement Input
+        moveInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        moveVelocity = moveInput.normalized * speed;
+
+        // 2. Animation
+        anim.SetBool("Run", moveInput.sqrMagnitude > 0);
+
+        // 3. Dash Trigger
+        if (Input.GetKeyDown(KeyCode.Space) && canDash && moveInput.sqrMagnitude > 0)
         {
-            moveVelocity = moveInput.normalized * speed;
+            StartCoroutine(PerformDash());
         }
 
-        if (moveInput.x != 0 || moveInput.y != 0)
-        {
-            anim.SetBool("Run", true);
-            Trail();
-        }
-        else
-        {
-            anim.SetBool("Run", false);
-        }
-
-        // Dash
-
-        if (moved == 0)
-        {
-            if (moveInput.x != 0 && Input.GetKeyDown(KeyCode.Space) || moveInput.y != 0 && Input.GetKeyDown(KeyCode.Space))
-            {
-                moved = 1;
-            }
-        }
-        else
-        {
-            if (dashTime <= 0)
-            {
-                moved = 0;
-                dashTime = startDashTime;
-                rb.velocity = Vector2.zero;
-                gameObject.layer = playerLayer;
-            }
-            else
-            {
-                dashTime -= Time.deltaTime;
-                if (moved == 1 && dashTime >= 0)
-                {
-                    rb.AddForce(moveVelocity * dashSpeed * Time.deltaTime);
-                    //rb.velocity = new Vector2(moveInput.y * dashSpeed, rb.velocity.x);
-                    gameObject.layer = invincibleLayer;
-                    Debug.Log("Dashed");
-                }
-            }
-        }
-
-
-        // Flip Based On Mouse Position and Player Position
-
-        var delta = Camera.main.ScreenToWorldPoint(Input.mousePosition) - transform.position;
-
-        if (delta.x >= 0 && !facingRight)
-        { // mouse is on right side of player
-            transform.localScale = new Vector3(1, 1, 1); // activate looking right
-            facingRight = true;
-        }
-        else if (delta.x < 0 && facingRight)
-        { // mouse is on left side of player
-            transform.localScale = new Vector3(-1, 1, 1); // activate looking left
-            facingRight = false;
-        }
+        // 4. Flip Character based on Mouse
+        HandleRotation();
     }
 
     void FixedUpdate()
     {
-        rb.MovePosition(rb.position + moveVelocity * Time.fixedDeltaTime);
+        if (!isDashing)
+        {
+            rb.MovePosition(rb.position + moveVelocity * Time.fixedDeltaTime);
+        }
     }
 
-    void Trail()
+    private IEnumerator PerformDash()
     {
-        dust.Play();
+        canDash = false;
+        isDashing = true;
+        isInvincible = true; // Can't be hit while dashing
+SoundManager.Instance.PlaySound(SoundManager.Instance.dash);
+        rb.velocity = moveInput.normalized * dashSpeed;
+        
+        yield return new WaitForSeconds(dashDuration);
+
+        isDashing = false;
+        rb.velocity = Vector2.zero;
+        isInvincible = false;
+
+        yield return new WaitForSeconds(dashCooldown);
+        canDash = true;
+    }
+
+    void HandleRotation()
+    {
+        Vector3 mousePos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        if (mousePos.x > transform.position.x && !facingRight)
+        {
+            transform.localScale = new Vector3(1, 1, 1);
+            facingRight = true;
+        }
+        else if (mousePos.x < transform.position.x && facingRight)
+        {
+            transform.localScale = new Vector3(-1, 1, 1);
+            facingRight = false;
+        }
     }
 
     public void TakeDamage(float damage)
     {
+        if (isInvincible || health <= 0) return;
+
         health -= damage;
+        StartCoroutine(HitFeedback());
+
+        if (health <= 0)
+        {
+            health = 0;
+            if (UIManager.Instance != null) UIManager.Instance.ShowDeathScreen();
+            Debug.Log("Game Over");
+        }
+    }
+
+    private IEnumerator HitFeedback()
+    {
+        isInvincible = true;
+        // Blink effect
+        for (float i = 0; i < invincibilityDuration; i += 0.2f)
+        {
+            sr.color = new Color(1, 0.5f, 0.5f, 0.5f); // Reddish transparent
+            yield return new WaitForSeconds(0.1f);
+            sr.color = Color.white;
+            yield return new WaitForSeconds(0.1f);
+        }
+        isInvincible = false;
     }
 }

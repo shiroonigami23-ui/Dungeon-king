@@ -1,0 +1,70 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!78 &1
+TagManager:
+  serializedVersion: 2
+  tags:
+  - PlayerWeapon
+  - HotBar
+  - hand1item
+  - ItemManager
+  - Detail
+  - Detail2
+  - Detail3
+  - WoodArrow
+  - Border
+  - MoneyManager
+  - CoinCountText
+  - SwordPosition2
+  layers:
+  - Default
+  - TransparentFX
+  - Ignore Raycast
+  - 
+  - Water
+  - UI
+  - PlayerWeapon
+  - PickUps
+  - Player
+  - Arrow
+  - MoneyPickUp
+  - InvincibleLayer
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  - 
+  m_SortingLayers:
+  - name: Default
+    uniqueID: 0
+    locked: 0
+  - name: Player
+    uniqueID: 2496539181
+    locked: 0
+  - name: Pickup
+    uniqueID: 127948475
+    locked: 0
+  - name: FoliageDetails
+    uniqueID: 1766378163
+    locked: 0
+  - name: BaseLayer
+    uniqueID: 1608824277
+    locked: 0
+  - name: Cursor
+    uniqueID: 1900178661
+    locked: 0

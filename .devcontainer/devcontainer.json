@@ -1,0 +1,5 @@
+{
+  "name": "Dungeon King: Resurrection",
+  "image": "mcr.microsoft.com/devcontainers/universal:2",
+  "postCreateCommand": "echo Open in Unity Hub"
+}
